@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { ArrowRight, ChevronDown } from 'lucide-react';
+import { ArrowRight, ArrowLeft, ChevronDown } from 'lucide-react';
 import { useDocTitle } from '../hooks/useUtils';
 import { products } from '../data/products';
 import ProductCard from '../components/ProductCard';
@@ -234,10 +234,22 @@ export default function Home() {
 
   const heroRef = useRef(null);
   const storyWrapRef = useRef(null);
+  const scrollTriggerRef = useRef(null);
   const [activeStep, setActiveStep] = useState(0);
   const [storyProgress, setStoryProgress] = useState(0);
   const [rotation, setRotation] = useState(0);
   const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Jump to specific step
+  const goToStep = (index) => {
+    setActiveStep(index);
+    if (index === 3) setRotation(90);
+    if (scrollTriggerRef.current) {
+      const st = scrollTriggerRef.current;
+      const target = st.start + ((index + 0.12) / 4) * (st.end - st.start);
+      window.scrollTo({ top: target, behavior: 'smooth' });
+    }
+  };
 
   // GSAP scroll-triggered story
   useEffect(() => {
@@ -247,9 +259,11 @@ export default function Home() {
       scrollTrigger: {
         trigger: '.story-pin-wrap',
         start: 'top top',
-        end: '+=300%',
+        end: '+=260%',
         pin: '.story-pin',
-        scrub: 1,
+        pinSpacing: true,
+        anticipatePin: 1,
+        scrub: 0.6,
         onUpdate: (self) => {
           const p = self.progress;
           setStoryProgress(p);
@@ -261,10 +275,12 @@ export default function Home() {
       },
     });
 
-    // Hero parallax
+    scrollTriggerRef.current = tl.scrollTrigger;
+
+    // Hero parallax: float upwards and fade out to prevent overlapping
     gsap.to('.hero-content', {
-      y: 80,
-      opacity: 0.3,
+      y: -60,
+      opacity: 0,
       ease: 'none',
       scrollTrigger: {
         trigger: heroRef.current,
@@ -341,51 +357,115 @@ export default function Home() {
       </section>
 
       {/* ── SCROLL-STORY (pinned) ── */}
-      <div className="story-pin-wrap" aria-label="Our craft story">
-        <div className="story-pin relative" style={{ background: storySteps[activeStep]?.gradient || '#121212', transition: 'background 0.8s ease' }}>
+      <div ref={storyWrapRef} className="story-pin-wrap relative z-20 bg-[#121212] w-full" aria-label="Our craft story">
+        <div
+          className="story-pin relative w-full h-screen min-h-screen flex flex-col justify-center overflow-hidden bg-[#121212] pt-20 pb-8"
+          style={{ background: storySteps[activeStep]?.gradient || '#121212', transition: 'background 0.8s ease' }}
+        >
           {/* Accent glow */}
           <div
             className="absolute inset-0 pointer-events-none transition-all duration-700"
             style={{ background: `radial-gradient(ellipse at 70% 50%, ${storySteps[activeStep]?.accent || 'transparent'}, transparent 65%)` }}
           />
 
-          <div className="relative z-10 h-full flex items-center">
-            <div className="max-w-screen-xl mx-auto w-full px-6 md:px-12 grid md:grid-cols-2 gap-12 items-center">
+          {/* Interactive Step Switcher Tabs at top of story */}
+          <div className="relative z-10 max-w-screen-xl mx-auto w-full px-6 md:px-12 mb-4 md:mb-6">
+            <div className="flex items-center justify-center sm:justify-start gap-2 sm:gap-4 overflow-x-auto pb-2 scrollbar-none" role="tablist">
+              {storySteps.map((s, i) => (
+                <button
+                  key={i}
+                  onClick={() => goToStep(i)}
+                  role="tab"
+                  aria-selected={activeStep === i}
+                  className={`px-3 py-1.5 sm:px-4 sm:py-2 text-[10px] sm:text-xs tracking-[0.2em] uppercase transition-all whitespace-nowrap border ${
+                    activeStep === i
+                      ? 'border-[#D4AF37] bg-[rgba(212,175,55,0.15)] text-[#D4AF37] font-semibold shadow-[0_0_15px_rgba(212,175,55,0.15)]'
+                      : 'border-transparent text-[#8A8580] hover:text-[#F9F6F0] hover:border-[rgba(212,175,55,0.3)]'
+                  }`}
+                >
+                  <span className="text-[#D4AF37] opacity-60 mr-1.5">{s.step}</span>
+                  {s.title}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="relative z-10 w-full flex items-center">
+            <div className="max-w-screen-xl mx-auto w-full px-6 md:px-12 grid md:grid-cols-2 gap-8 md:gap-12 items-center">
               {/* Left: text panel */}
-              <div className="glass-panel p-8 md:p-12 max-w-lg">
-                <div className="text-[#D4AF37] text-[10px] tracking-widest uppercase mb-2">Step {storySteps[activeStep]?.step}</div>
-                <div className="gold-line mb-6" />
-                <h2 className="font-display text-4xl md:text-5xl text-[#F9F6F0] mb-3">
+              <div className="glass-panel p-6 sm:p-8 md:p-12 max-w-lg shadow-[0_10px_40px_rgba(0,0,0,0.5)]">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[#D4AF37] text-[10px] tracking-widest uppercase">Step {storySteps[activeStep]?.step}</span>
+                  <span className="text-[#8A8580] text-[10px] tracking-widest uppercase">Our Process</span>
+                </div>
+                <div className="gold-line mb-5" />
+                <h2 className="font-display text-3xl sm:text-4xl md:text-5xl text-[#F9F6F0] mb-2 leading-tight">
                   {storySteps[activeStep]?.title}
                 </h2>
-                <p className="text-[#D4AF37] text-sm tracking-widest uppercase mb-6">
+                <p className="text-[#D4AF37] text-xs sm:text-sm tracking-widest uppercase mb-5 font-medium">
                   {storySteps[activeStep]?.subtitle}
                 </p>
-                <p className="text-[#8A8580] text-base leading-relaxed">
+                <p className="text-[#8A8580] text-sm sm:text-base leading-relaxed min-h-[100px]">
                   {storySteps[activeStep]?.body}
                 </p>
+
+                {/* Step navigation controls */}
+                <div className="flex items-center justify-between pt-5 mt-5 border-t border-[rgba(212,175,55,0.15)]">
+                  <button
+                    onClick={() => goToStep(Math.max(0, activeStep - 1))}
+                    disabled={activeStep === 0}
+                    className="flex items-center gap-1.5 text-xs tracking-widest uppercase text-[#8A8580] hover:text-[#D4AF37] transition-colors disabled:opacity-20 disabled:pointer-events-none"
+                    aria-label="Previous step"
+                  >
+                    <ArrowLeft size={14} /> Prev
+                  </button>
+                  <div className="text-[11px] text-[#D4AF37] tracking-widest font-mono">
+                    0{activeStep + 1} / 04
+                  </div>
+                  <button
+                    onClick={() => goToStep(Math.min(3, activeStep + 1))}
+                    disabled={activeStep === 3}
+                    className="flex items-center gap-1.5 text-xs tracking-widest uppercase text-[#8A8580] hover:text-[#D4AF37] transition-colors disabled:opacity-20 disabled:pointer-events-none"
+                    aria-label="Next step"
+                  >
+                    Next <ArrowRight size={14} />
+                  </button>
+                </div>
               </div>
 
               {/* Right: visual */}
-              <div className="flex items-center justify-center">
+              <div className="flex items-center justify-center min-h-[260px] sm:min-h-[300px]">
                 {activeStep === 0 && (
-                  <div className="relative w-72 h-72 flex items-center justify-center">
-                    <div className="absolute inset-0 rounded-full opacity-20"
-                      style={{ background: 'radial-gradient(circle, #D4AF37, transparent 70%)' }} />
-                    <svg viewBox="0 0 200 200" className="w-56 h-56 jewel-svg" aria-label="Gold nugget illustration">
+                  <div className="relative w-64 h-64 sm:w-80 sm:h-80 flex flex-col items-center justify-center">
+                    <div
+                      className="absolute inset-0 rounded-full opacity-30 animate-pulse pointer-events-none"
+                      style={{ background: 'radial-gradient(circle, rgba(212,175,55,0.35) 0%, rgba(180,130,20,0.1) 50%, transparent 70%)' }}
+                    />
+                    <svg viewBox="0 0 220 220" className="w-56 h-56 sm:w-64 sm:h-64 jewel-svg" aria-label="Fairmined Gold Nugget">
                       <defs>
-                        <radialGradient id="nugget" cx="40%" cy="35%" r="65%">
-                          <stop offset="0%" stopColor="#F0D060" />
-                          <stop offset="50%" stopColor="#D4AF37" />
-                          <stop offset="100%" stopColor="#8A6010" />
+                        <radialGradient id="nugget" cx="38%" cy="32%" r="65%">
+                          <stop offset="0%" stopColor="#FFF2B2" />
+                          <stop offset="25%" stopColor="#F5D061" />
+                          <stop offset="60%" stopColor="#D4AF37" />
+                          <stop offset="100%" stopColor="#7A5208" />
                         </radialGradient>
+                        <filter id="gold-glow">
+                          <feGaussianBlur stdDeviation="8" result="blur" />
+                          <feMerge>
+                            <feMergeNode in="blur" />
+                            <feMergeNode in="SourceGraphic" />
+                          </feMerge>
+                        </filter>
                       </defs>
-                      {/* Organic nugget shape */}
-                      <path d="M100,30 C135,25 165,50 168,80 C172,115 155,145 125,158 C95,172 60,165 42,140 C24,115 30,75 55,55 C70,42 85,32 100,30Z" fill="url(#nugget)" />
-                      <path d="M85,50 C105,45 125,58 128,75 C132,95 118,112 98,118 C78,124 60,112 55,93" fill="none" stroke="#F0D060" strokeWidth="1.5" opacity="0.4" />
-                      <circle cx="80" cy="65" r="8" fill="#F0D060" opacity="0.3" />
-                      <circle cx="120" cy="95" r="5" fill="#F0D060" opacity="0.2" />
-                      <text x="100" y="195" textAnchor="middle" fontSize="9" fill="#D4AF37" opacity="0.6" fontFamily="Inter">Fairmined Gold · 22K Purity</text>
+                      <circle cx="110" cy="105" r="70" fill="url(#nugget)" filter="url(#gold-glow)" />
+                      <path d="M70,80 Q110,60 150,85 Q130,125 90,130 Z" fill="none" stroke="#FFF2B2" strokeWidth="1" opacity="0.4" />
+                      <circle cx="95" cy="85" r="12" fill="#FFF8D6" opacity="0.3" />
+                      <circle cx="130" cy="115" r="8" fill="#FFF8D6" opacity="0.2" />
+                      <line x1="110" y1="50" x2="110" y2="40" stroke="#FFF2B2" strokeWidth="1.5" opacity="0.7" />
+                      <line x1="110" y1="160" x2="110" y2="170" stroke="#D4AF37" strokeWidth="1.5" opacity="0.4" />
+                      <text x="110" y="198" textAnchor="middle" fontSize="10" fill="#D4AF37" opacity="0.8" letterSpacing="0.1em" fontFamily="Inter" fontWeight="500">
+                        Fairmined Gold · 22K Purity
+                      </text>
                     </svg>
                   </div>
                 )}
@@ -395,14 +475,26 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Progress dots */}
-            <div className="absolute right-6 md:right-12 top-1/2 -translate-y-1/2 flex flex-col gap-3">
+            {/* Clickable Progress dots */}
+            <div className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 flex flex-col gap-4 z-20">
               {storySteps.map((s, i) => (
-                <div
+                <button
                   key={i}
-                  className={`progress-dot ${activeStep === i ? 'active' : ''}`}
-                  title={s.title}
-                />
+                  onClick={() => goToStep(i)}
+                  className="group flex items-center justify-end gap-3 p-1 transition-all"
+                  aria-label={`Jump to Step ${s.step}: ${s.title}`}
+                >
+                  <span className={`text-[10px] tracking-widest uppercase transition-all duration-300 hidden lg:block ${
+                    activeStep === i ? 'text-[#D4AF37] opacity-100 font-medium' : 'text-[#8A8580] opacity-0 group-hover:opacity-100'
+                  }`}>
+                    {s.title}
+                  </span>
+                  <span className={`block rounded-full transition-all duration-300 ${
+                    activeStep === i
+                      ? 'w-3 h-3 bg-[#D4AF37] shadow-[0_0_12px_#D4AF37]'
+                      : 'w-2 h-2 bg-[#4A4540] group-hover:bg-[#8A8580]'
+                  }`} />
+                </button>
               ))}
             </div>
           </div>
